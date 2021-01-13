@@ -1,0 +1,207 @@
+---
+title: '326.212 Final Project: Part 2'
+output: html_document
+---
+
+## 2019-14500 최민준
+
+```{r}
+library(RSQLite)
+library(tidyverse)
+con <- dbConnect(SQLite(), "project.sqlite")
+```
+
+## Part 2. Basic Questions (150 pts)
+
+### Q1. Monthly traffic in three airports (60 pts)
+
+#### Q1-1
+
+```{r}
+airports <- tbl(con, "airports")
+
+filter(airports, IATA == "SNA" | IATA == "SJC" | IATA == "SMF")
+```
+
+- SNA: John Wayne Airport-Orange County Airport
+- SJC: Norman Y. Mineta San Jose International Airport
+- SMF: Sacramento International Airport
+
+
+
+#### Q1-2
+
+```{r}
+flights <- tbl(con, "flights")
+
+airportcounts <- flights %>%
+  filter(Dest == "SNA" | Dest == "SJC" | Dest == "SMF") %>%
+  group_by(Year, Month, Dest) %>%
+  summarise(count = n()) %>%
+  collect()
+
+airportcounts
+```
+
+
+
+#### Q1-3
+
+```{r}
+library(lubridate)
+
+airportcounts <- airportcounts %>%
+  mutate(Date = lubridate::make_date(Year, Month)) %>%
+  arrange(Date)
+
+airportcounts
+```
+
+#### Q1-4
+
+```{r}
+ggplot(data = airportcounts, mapping = aes(x = Date, y = count, color = Dest)) +
+  geom_line() +
+  geom_point()
+
+```
+
+
+
+#### Q1-5
+
+- For San Jose International Airport,
+```{r}
+filter(airportcounts, Dest == "SJC") %>%
+  arrange(desc(count)) %>%
+  head(10)
+```
+
+- For Sacramento International Airport,
+```{r}
+filter(airportcounts, Dest == "SMF") %>%
+  arrange(desc(count)) %>%
+  head(10)
+```
+
+- For Orange County Airport,
+```{r}
+filter(airportcounts, Dest == "SNA") %>%
+  arrange(desc(count)) %>%
+  head(10)
+```
+
+
+
+
+### Q2. Finding reliable airlines (60 pts)
+
+#### Q2-1
+
+```{r}
+delays <- flights %>%
+  filter(Origin == "ORD" & Dest == "MSP") %>%
+  filter(Year == 2015) %>%
+  filter(Op_Unique_Carrier == "UA" | Op_Unique_Carrier == "DL" | Op_Unique_Carrier == "AA" | Op_Unique_Carrier == "MQ") %>%
+  select(1, 2, 3, 9, 15) %>%  # selecting only necessary columns
+  group_by(Year, Month, Day_of_Month, Op_Unique_Carrier) %>%
+  summarise(avg_ArrDelay = mean(Arr_Delay), count = n()) %>%
+  collect()
+
+delays
+
+```
+
+#### Q2-2
+
+```{r}
+airlines <- tbl(con, "airlines") %>%
+  collect()
+
+delays <- left_join(delays, airlines, by = c("Op_Unique_Carrier" = "Code"))
+colnames(delays)[7] <- "Airline"
+
+delays %>%
+  ggplot() +
+  geom_density(mapping = aes(x = avg_ArrDelay, color = Airline))
+```
+
+- It seems that American Air is the most reliable airline, because its density plot is most leftward (smallest average arrival-delay).
+- The density plot of Envoy Air is certainly weighted to the right side compared to the other lines. This means that Envoy Air shows a bigger average arrival delay, and thus we can conclude that Envoy Air is the least reliable airline among these.
+- In fact, Envoy Air is a regional airline in USA, while the others are major international carriers.
+
+
+
+
+### Q3. All flights (30 pts)
+
+#### Q3-1
+
+```{r}
+count_mondays_2001 <- flights %>%
+  filter(Year == 2001 & Day_Of_Week == 1) %>%
+  group_by(Year, Month, Day_of_Month) %>%
+  summarise(count = n()) %>%
+  collect() %>%
+  mutate(Date = make_date(Year, Month, Day_of_Month))
+
+count_mondays_2001
+
+ggplot(data = count_mondays_2001) +
+  geom_point(aes(x = Date, y = count)) +
+  geom_line(aes(x = Date, y = count))
+```
+
+```{r}
+count_mondays_2001 %>%
+  filter(count < 17000)
+```
+Let's first explain the reasons of slightly decreased counts.
+- January 1st: New Years Day
+- May 28th: Memorial Day
+- September 3rd: Labor Day
+These are holidays in America, and this is the reason of the slight drops of counts of flights.
+
+- The most interesting pattern is that there was a significant drop on number of flights from mid-September.
+- The reason of this would be "9/11 terror attack" on the United States, which was on September 11th, 2001.
+Directly after this terrorist attack, the federal government closed airports, canceling thousands of flights.
+Even when the airports reopened, airlines experienced at least a 30 percent reduction in demand during the initial shock period. This might caused the airlines to reduce the number of flights.
+
+- Also, December 24th is Christmas Eve, when people stay home. There is a rapid decrease in number of flights.
+- December 31st, the day before New Years Day, also shows a relatively small number of flights.
+
+
+
+#### Q3-2
+
+```{r}
+count_mondays_2011 <- flights %>%
+  filter(Year == 2011 & Day_Of_Week == 1) %>%
+  group_by(Year, Month, Day_of_Month) %>%
+  summarise(count = n()) %>%
+  collect() %>%
+  mutate(Date = make_date(Year, Month, Day_of_Month))
+
+count_mondays_2011
+
+ggplot(data = count_mondays_2011) +
+  geom_point(aes(x = Date, y = count)) +
+  geom_line(aes(x = Date, y = count)) +
+  coord_cartesian(ylim = c(12000, 19000)) +
+  scale_y_continuous(breaks = seq(12000, 18000, by = 2000))
+
+```
+
+- There are slight outliers, but no big rapid changes compared to 2001.
+
+These are holidays, when people usually stay home.
+- May 30th: Memorial Day
+- July 4th: Independence Day
+- September 5th: Labor Day
+
+- November 28th shows a noticeable increase, because it is the first Monday after Thanksgiving (Nov. 24). Many people visit their families during Thanksgiving and come back home, or to work.
+
+
+```{r}
+dbDisconnect(con)
+```

@@ -1,0 +1,568 @@
+---
+title: "326.212 Homework 4"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+
+
+## 2019-14500 최민준
+
+
+```{R}
+library(stringr)
+library(tidyverse)
+library(nycflights13)
+library(modelr)
+library(lubridate)
+```
+
+
+### Textbook 19.3.1
+
+#### Problem 1. Read the source code for each of the following three functions, puzzle out what they do, and then brainstorm better names.
+
+```{R}
+f1 <- function(string, prefix) {
+  substr(string, 1, nchar(prefix)) == prefix
+}
+f2 <- function(x) {
+  if (length(x) <= 1) return(NULL)
+  x[-length(x)]
+}
+f3 <- function(x, y) {
+  rep(y, length.out = length(x))
+}
+```
+
+- Function `f1` determines whether a string starts with the designated prefix.
+`starts_with(string, prefix)` would be a better name.
+
+- Function `f2` takes a vector as the input, and eliminates the last element. The reduced vector is the output.
+`drop_last(x)` would be a better name.
+
+- Function `f3` produces a vector which has the same length as x. The elements of y are repeated until the total length becomes the same as length of x.
+`expand(x, y)` would be a suitable name.
+
+
+
+
+### Textbook 19.4.4
+
+#### Problem 1. What’s the difference between `if` and `ifelse()`? Carefully read the help and construct three examples that illustrate the key differences.
+
+`if` can only test a condition for one value. It can not test a condition for each element in a vector or a list.
+However, `ifelse()` can test a condition for each element in a vector.
+
+- Examples
+```{R}
+a <- c(1,2,3,4,5)
+if(a > 2){"big"} else {"small"} # if
+ifelse(a > 2, "big", "small")   # ifelse()
+
+b <- c(-3:6)
+if(b >= 0){b} else {NA} # if
+ifelse(b >= 0, b, NA)   # ifelse()
+
+d <- c("dodgers", "mets", "yankees", "nationals", "cubs", "diamondbacks")
+if(nchar(d) > 7){"long"} else {"short"}  # if
+ifelse(nchar(d) > 7, "long", "short")    # ifelse()
+```
+
+
+
+#### Problem 6. What does this `switch()` call do? What happens if `x` is “e”?
+
+First, let's make this into a function, and put "e" and other strings as an input.
+```{R}
+switch1 <- function(x){
+switch(x, 
+  a = ,
+  b = "ab",
+  c = ,
+  d = "cd"
+)}
+
+switch1("e")
+switch1("a")
+switch1("b")
+switch1("c")
+switch1("d")
+switch1("f")
+switch1("ab")
+
+```
+
+When the input is "a" or "b", the output is "ab". When the input is "c" or "d", the output is "cd".
+Otherwise, there is no output.
+- `switch(x, ...)` returns the value of the argument that matches to `x`. If the corresponding argument has a missing value such as `a = ,`, it skips to the next argument and returns that value.
+- If the input is "e", there is no argument that matches "e", so the function will return `NULL`. (Nothing comes present)
+
+
+
+
+### Textbook 19.5.5
+
+#### Problem 4. The default value for the `method` argument to `cor()` is `c("pearson", "kendall", "spearman")`. What does that mean? What value is used by default?
+
+- It means that one of "pearson", "kendall", "spearman" can be used as the value of the `method` argument.
+- "pearson" is used by default.
+
+
+
+
+### Textbook 20.3.5
+
+#### Problem 2. Read the source code for `dplyr::near()` (Hint: to see the source code, drop the `()`). How does it work?
+
+```{R}
+dplyr::near
+```
+
+- It checks if the difference of two numbers `x`, `y` are smaller than a certain tolerance.
+- This tolerance has a default value of `.Machine$double.eps^0.5`. This value is the smallest number that a computer can represent.
+
+
+
+
+### Textbook 20.5.4
+
+#### Problem 1. Draw the following lists as nested sets (scan your drawing and link it with your .Rmd file)
+
+#### (1)
+```{R}
+list("a", "b", list("c", "d"), list("e", "f"))
+```
+
+
+#### (2)
+```{R}
+list(list(list(list(list(list("a"))))))
+```
+
+My drawing of nested sets for (1) and (2):
+![Drawing for 20.5.4 problem 1](C:/Users/minjo/Documents/GitHub/sc19-hw-MinjoonChoi99/hw4/drawingHW4.jpg)
+
+
+
+
+### Textbook 20.7.4
+
+#### Problem 2. Try and make a tibble that has columns with different lengths. What happens?
+
+```{R}
+tibble(x = 1, y = 1:4)
+# tibble(x = 1:2, y = 1:4)
+```
+- If the lengths of columns are different, generally, an error occurs. ("Tibble columns must have consistent lengths")
+- But if a column is set to be one scalar value, the scalar value is repeated in all rows, and a tibble is made.
+
+
+
+#### Problem 3. Based on the definition above, is it ok to have a list as a column of a tibble?
+
+```{R}
+tibble(x = 1:3, y = list("a", c(1, 2, 3, 4), list("b", 5, "c")))
+```
+
+- A tibble is made even if we set the column `y` as a list. It is ok to have a list as a column of a tibble.
+
+
+
+
+### Textbook 21.2.1
+
+#### Problem 2. Eliminate the for loop in each of the following examples by taking advantage of an existing function that works with vectors:
+
+```{R}
+out <- ""
+for (x in letters) {
+  out <- stringr::str_c(out, x)
+}
+```
+We can change this into
+```{R}
+str_c(letters, collapse = "")
+```
+
+Next,
+```{R}
+x <- sample(100)
+sd <- 0
+for (i in seq_along(x)) {
+  sd <- sd + (x[i] - mean(x)) ^ 2
+}
+sd <- sqrt(sd / (length(x) - 1))
+```
+We can replace this by
+```{R}
+sd(x)
+```
+
+Next,
+```{R}
+x <- runif(100)
+out <- vector("numeric", length(x))
+out[1] <- x[1]
+for (i in 2:length(x)) {
+  out[i] <- out[i - 1] + x[i]
+}
+```
+Replacing this for loop by
+```{R}
+cumsum(x)
+all.equal(cumsum(x), out)
+```
+`cumsum(x)` does the same operation as the for loop does.
+
+
+
+
+### Textbook 21.3.5
+
+#### Problem 3. Write a function that prints the mean of each numeric column in a data frame, along with its name. (Extra challenge: what function did I use to make sure that the numbers lined up nicely, even though the variable names had different lengths?)
+
+```{R}
+show_mean <- function(df, digits = 2){
+  str_max <- max(str_length(names(df)))
+  for(i in names(df)){
+    if(is.numeric(df[[i]])){
+    cat(
+      str_c(
+      str_pad(str_c(i, ":"), str_max + 1L, side = "right"), format(mean(df[[i]]), digits = digits, nsmall = digits), sep = " "
+      ),
+      "\n"
+      )
+    }
+  }
+}
+
+show_mean(iris)
+```
+
+- The function `str_pad()` was used to make the lengths of the strings (col name + ":") equal to `str_max + 1`. This makes the numbers line up nicely.
+
+
+
+
+### Textbook 21.4.1
+
+#### Problem 1. Read the documentation for `apply()`. In the 2d case, what two for loops does it generalise?
+
+We set a matrix that has 6 rows and 4 columns.
+```{R}
+mtx <- matrix(rnorm(24), nrow = 6)
+
+apply(mtx, 1, mean)
+```
+
+When the MARGIN argument is 1, `apply()` function in this case, computes the mean for each row.
+It is identical to the for loop below.
+```{R}
+vec1 <- vector(mode = "numeric", length = nrow(mtx))
+for(i in 1:nrow(mtx)){
+  vec1[i] <- mean(mtx[i,])
+}
+vec1
+```
+
+When the MARGIN argument is 2, `apply()` function in this case, computes the mean for each column.
+```{R}
+apply(mtx, 2, mean)
+```
+
+It is identical to the for loop below.
+```{R}
+vec2 <- vector(mode = "numeric", length = ncol(mtx))
+for(i in 1:ncol(mtx)){
+  vec2[i] <- mean(mtx[,i])
+}
+vec2
+```
+
+
+
+
+### Textbook 21.5.3
+
+#### Problem 1. Write code that uses one of the map functions to:
+
+#### (1) Compute the mean of every column in `mtcars`.
+
+```{R}
+map_dbl(mtcars, mean)
+```
+
+
+#### (2) Determine the type of each column in `nycflights13::flights`.
+
+```{R}
+map_chr(nycflights13::flights, typeof)
+```
+
+
+#### (3) Compute the number of unique values in each column of `iris`.
+
+```{R}
+map_int(iris, function(x){length(unique(x))})
+```
+
+
+#### (4) Generate 10 random normals for each of `mu` = -10, 0, 10, and 100.
+
+```{R}
+map(c(-10, 0, 10, 100), ~ rnorm(10, mean = .))
+```
+
+
+
+
+### Textbook 21.9.3
+
+#### Problem 3. A possible base R equivalent of `col_summary()` is:
+```{R}
+col_sum3 <- function(df, f) {
+  is_num <- sapply(df, is.numeric)
+  df_num <- df[, is_num]
+
+  sapply(df_num, f)
+}
+```
+
+#### But it has a number of bugs as illustrated with the following inputs. What causes the bugs?
+
+```{R}
+df <- tibble(
+  x = 1:3, 
+  y = 3:1,
+  z = c("a", "b", "c")
+)
+```
+
+The inputs are `df`, `df[1:2]`, `df[1]`, `df[0]`. Let's put these inputs in `sapply()`.
+
+```{R}
+sapply(df, is.numeric)
+sapply(df[1:2], is.numeric)
+sapply(df[1], is.numeric)
+sapply(df[0], is.numeric)
+```
+
+The problem is that it is not sure what type of vector `sapply()` will produce out. When the input is an empty tibble such as `df[0]`, `sapply()` produces an empty list, not a vector.
+In the definiton of `col_sum3()`, tibble subsetting is present in `df[, is_num]`. When an empty tibble is the input, `is_num` is an empty list, and an error occurs because we cannot use a list inside `[]`.
+
+```{R}
+# col_sum3(df[0], mean)
+```
+
+
+
+
+### Textbook 23.4.5
+
+#### Problem 1. What happens if you repeat the analysis of `sim2` using a model without an intercept. What happens to the model equation? What happens to the predictions?
+
+```{R}
+mod <- lm(y ~ x, data = sim2)  # model with intercept
+mod_noint <- lm(y ~ x - 1, data = sim2)  # model without intercept
+
+coefficients(mod)
+coefficients(mod_noint)
+
+sim2 %>%
+  data_grid(x) %>%
+  spread_predictions(mod, mod_noint)
+```
+
+- The coefficient of `xa` in the model with no intercept(`mod_noint`), is the same as the intercept in the model with an intercept(`mod`).
+- The predictions of the two models are all same.
+
+
+
+
+### Textbook 24.2.3
+
+#### Problem 2. If `log(price) = a_0 + a_1 * log(carat)`, what does that say about the relationship between `price` and `carat`?
+
+```{R}
+mod_log <- lm(log(price) ~ log(carat), data = diamonds)
+
+diamonds %>%
+  select(carat, price) %>%
+  data_grid(carat) %>%
+  add_predictions(mod_log) %>%
+  mutate(pred_price = exp(pred)) %>%
+  ggplot(aes(x = carat, y = pred_price)) +
+  geom_line() +
+  labs(x = "carat", y = "model based, predicted price")
+```
+
+- This plot is shows the predicted price based on the model involving `log(price)` and `log(carat)`.
+- This shows that the relationship between `price` and `carat` is not exactly linear.
+- As `carat` increases, `price` tends to increase exponentially, which is more rapid than in linear relationship.
+
+
+
+
+### Textbook 24.3.5
+
+#### Problem 2. What do the three days with high positive residuals represent? How would these days generalise to another year?
+
+```{R}
+daily <- flights %>% 
+  mutate(date = make_date(year, month, day)) %>% 
+  group_by(date) %>% 
+  summarise(n = n()) %>%
+  mutate(wday = wday(date, label = TRUE))
+
+mod <- lm(n ~ wday, data = daily)
+daily <- daily %>% 
+  add_residuals(mod)
+
+term <- function(date) {
+  cut(date, 
+    breaks = ymd(20130101, 20130605, 20130825, 20140101),
+    labels = c("spring", "summer", "fall") 
+  )
+}
+
+daily <- mutate(daily, term = term(date)) 
+
+daily %>% 
+  top_n(3, resid)
+```
+
+- November 30th, 2013 is the Saturday after thanksgiving day, and December 1st, 2013 is the following Sunday. December 28th, 2013 is the Saturday after Christmas.
+- These days showed a specifically high number of flights comparing to ordinary days.
+- For other years, it can be generalised as the dates of the corresponding holidays of those years.
+
+
+
+
+### Extra Question 1.
+
+#### (a)
+
+The centers of Frances' lines are uniformly distributed over the page. The vertical distance from the center to the nearest horizontal rule has a minimal value of 0, and the maximum is 1/2. Thus, the vertical distance from the center of one of Frances’ lines to the nearest horizontal rule on the paper should be uniformly distributed between 0 and 0.5 cm.
+
+
+#### (b)
+
+- Because our ultimate goal is to check if Frances' line crosses horizontal rules, we are only interested in the center's height from a horizontal rule, and the angle between a vertical rule and Frances' line.
+- Because we only need to check whether the line crosses, and the vertical distance from the center to the nearest horizontal rule is uniformly distributed between 0 and 0.5 cm, we can limit the scope of observation to a smaller rectangle which has a height of 0.5cm. (It's the same to see if "a line crosses the upper horizontal rule in the upper rectangle", or "a line crosses the lower horizontal rule in the bottom rectangle".)
+- When a 1 X 1 square is split into two 1 X 0.5 rectangles, We will focus on the bottom rectangle.
+
+- Thus, we can generate the random centers of 1000 of Frances' lines in this way.
+```{R}
+y_abs <- runif(1000, min = 0, max = 0.5)
+
+y_abs %>%
+  head(50)
+```
+
+#### (c)
+
+The angle is sufficient if it is between 0 and 90 degrees. (0 and pi/2)
+
+```{R}
+theta <- runif(1000, min = 0, max = pi/2)
+
+theta %>%
+  head(50)
+```
+
+
+#### (d)
+
+When `y <= 0.25 * cos(theta)`, the line crosses one of the horizontal rules.
+
+
+#### (e)
+
+```{R}
+cross <- vector("logical", length = 1000)
+
+for(i in 1:1000){
+  cross[i] <- y_abs[i] <= 0.25 * cos(theta[i])
+}
+
+sum(cross) / length(cross)
+```
+
+In this case, the fraction of 1000 lines crossing horizontal rules is 0.32.
+
+
+#### (f)
+
+When the length of Frances' line is `l` and the rules are `d` apart, the probability that the line crosses a horizontal rule is `(2l)/(pi * d)`. In this case, `l = 0.5` and `d = 1`, so the fraction should be 1/pi, which is near 0.318.
+
+
+
+
+### Extra Question 2.
+
+#### (a)
+
+The given R code is:
+```{R}
+swidth.versicolor <- NULL
+for (i in seq_len(nrow(iris)) ) {
+    if (iris$Species[i]=="versicolor") {
+            swidth.versicolor <- c(swidth.versicolor, iris$Sepal.Width[i])
+    }
+}
+```
+
+Vectorizing the above code,
+
+```{R}
+swidth.versicolor2 <- vector("numeric")
+j <- 0
+for (i in seq_len(nrow(iris)) ) {
+  if (iris$Species[i]=="versicolor") {
+    j <- j + 1
+    swidth.versicolor2[j] <- iris$Sepal.Width[i]
+  }
+}
+
+all.equal(swidth.versicolor, swidth.versicolor2)
+```
+
+- Checked that the result is the same.
+
+
+#### (b)
+
+```{R}
+data(iris)
+head(iris$Sepal.Length[iris$Species])
+```
+
+Only looking at `head()` of the vector, it's hard to find why.
+
+```{R}
+iris$Sepal.Length[iris$Species]
+
+iris$Species
+
+iris %>%
+  count(Species)
+```
+
+- Looking at the full vector, we can notice that each value is just repeated 50 times.
+- Also, counting the data by `Species`, there are 50 records for each `Species` value.
+
+```{R}
+head(iris)
+```
+
+The first 3 values of `Sepal.Length` are 5.1, 4.9, 4.7. These values are the ones that were repeated 50 times.
+
+Now, we can notice why the following happened.
+```{R}
+head(iris$Sepal.Length[iris$Species])
+```
+
+We got this result because we indexed `iris$Sepal.Length` using `iris$Species`, which is a vector in which each `Species` value is just repeated 50 times. Thus, the first three values of `iris$Sepal.Length` are repeated 50 times, just as it does in `iris$Species`.

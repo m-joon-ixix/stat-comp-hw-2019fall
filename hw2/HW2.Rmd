@@ -1,0 +1,684 @@
+---
+title: "326.212 Homework 2"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+
+## 2019-14500 최민준
+
+### Textbook 5.2.4
+
+#### Problem 1. Find all flights that
+
+#### (1) Had an arrival delay of two or more hours
+
+```{R}
+library(nycflights13)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+
+filter(flights, arr_delay >= 120)
+```
+
+
+#### (2) Flew to Houston (`IAH` or `HOU`)
+
+```{R}
+filter(flights, dest == "IAH" | dest == "HOU")
+```
+
+
+#### (3) Were operated by United, American, or Delta
+
+```{R}
+filter(flights, carrier == "UA" | carrier == "AA" | carrier == "DL")
+```
+
+
+#### (4) Departed in summer (July, August, and September)
+
+```{R}
+filter(flights, month == 7 | month == 8 | month == 9)
+```
+
+
+#### (5) Arrived more than two hours late, but didn’t leave late
+
+```{R}
+filter(flights, arr_delay > 120 & dep_delay <= 0)
+```
+
+
+#### (6) Were delayed by at least an hour, but made up over 30 minutes in flight
+
+```{R}
+filter(flights, dep_delay >= 60 & arr_delay < (dep_delay - 30))
+```
+
+
+#### (7) Departed between midnight and 6am (inclusive)
+
+```{R}
+filter(flights, dep_time <= 600)
+```
+
+
+
+#### Problem 3. How many flights have a missing `dep_time`? What other variables are missing? What might these rows represent?
+
+```{R}
+cancelled <- filter(flights, is.na(dep_time) == TRUE)
+cancelled
+```
+
+```{R}
+dim(cancelled)[1]
+```
+
+8255 filghts have a missing `dep_time`. Other variables such as `dep_delay`, `arr_time`, `arr_delay`, `air_time` are missing. These rows represent cancelled flights.
+
+
+
+
+### Textbook 5.3.1
+
+#### Problem 1. How could you use `arrange()` to sort all missing values to the start? (Hint: use `is.na()`).
+
+In the data `flights`, let's say we are ordering the rows by `dep_delay`.
+This code sorts all missing values to the start, and sorts the existing values in ascending order.
+
+```{R}
+arrange(flights, desc(is.na(dep_delay)), dep_delay)
+```
+
+
+
+
+### Textbook 5.4.1
+
+#### Problem 4. Does the result of running the following code surprise you? How do the select helpers deal with case by default? How can you change that default?
+
+```{R}
+select(flights, contains("TIME"))
+```
+
+The select helpers ignore the case of letters by default.
+By writing the argument `ignore.case` inside the select helper `contains()`, we can change the default.
+
+```{R}
+select(flights, contains("TIME", ignore.case = FALSE))
+```
+
+As a result, this code doesn't select any of the columns.
+
+
+
+
+### Textbook 5.5.2
+
+#### Problem 1. Currently `dep_time` and `sched_dep_time` are convenient to look at, but hard to compute with because they’re not really continuous numbers. Convert them to a more convenient representation of number of minutes since midnight.
+
+This code converts `dep_time` and `sched_dep_time` into columns named `dep_minsmid` and `sched_dep_minsmid`. (minsmid: Minutes Since Midnight)
+
+```{R}
+mutate(flights, dep_minsmid = (dep_time %/% 100) * 60 + (dep_time %% 100),
+       sched_dep_minsmid = (sched_dep_time %/% 100) * 60 + (sched_dep_time %% 100))
+```
+
+
+
+#### Problem 3. Compare `dep_time`, `sched_dep_time`, and `dep_delay`. How would you expect those three numbers to be related?
+
+Using the new two columns `dep_minsmid`, `sched_dep_minsmid` made in problem 1, we can relate `dep_time`, `sched_dep_time`, and `dep_delay` in the following way.
+
+```
+sched_dep_minsmid + dep_delay = dep_minsmid
+```
+
+When `dep_minsmid` becomes smaller than 0, we should add 1440.
+When `dep_minsmid` becomes larger than 1439, we should subtract 1440.
+
+
+
+
+### Textbook 5.6.7
+
+#### Problem 5. Which carrier has the worst delays? Challenge: can you disentangle the effects of bad airports vs. bad carriers? Why/why not? (Hint: think about `flights %>% group_by(carrier, dest) %>% summarise(n())`)
+
+```{R}
+delay_by_carrier <- flights %>%
+  group_by(carrier) %>%
+  summarise(delay = mean(arr_delay, na.rm = TRUE), count = n())
+arrange(delay_by_carrier, desc(delay))
+```
+
+The carrier F9, which is Frontier Airlines, has the worst arrival delay time in average.
+The following code gives some information of the flights operated by F9.
+
+```{R}
+num_by_carrierdest <- flights %>% group_by(carrier, dest) %>% summarise(n())
+filter(num_by_carrierdest, carrier == "F9")
+```
+
+By this result, we know that F9 (Frontier Airlines) head to DEN (Denver) only.
+Thus, we can estimate that filghts heading to Denver have a bad delay.
+But if we get the average delay time for each destination, Denver is not among the airports having the worst delays.
+
+```{R}
+delay_by_dest <- flights %>%
+  group_by(dest) %>%
+  summarise(delay = mean(arr_delay, na.rm = TRUE), count = n())
+arrange(delay_by_dest, desc(delay))
+```
+
+Thus, we can conclude that the huge delay time of Frontier Airlines is not because of the airport, but the carrier itself.
+
+
+
+
+### Textbook 5.7.1
+
+#### Problem 5. Delays are typically temporally correlated: even once the problem that caused the initial delay has been resolved, later flights are delayed to allow earlier flights to leave. Using `lag()`, explore how the delay of a flight is related to the delay of the immediately preceding flight.
+
+```{R}
+delay <- flights $ dep_delay
+head(delay, 10)
+head(lag(delay), 10)
+```
+
+`lag(delay)` represents the delay time of the preceding flight of each flight. Let's take a look at the difference between `delay` and `lag(delay)` of each observation.
+
+```{R}
+head(delay - lag(delay), 10)
+mean(delay, na.rm = TRUE)
+mean(delay - lag(delay), na.rm = TRUE)
+```
+
+The average delay time is about 12.6 minutes. But the average of `delay - lag(delay)` is only -0.015 minutes, which tells us that the delay of a flight is strongly related to the delay of the immediately preceding flight.
+
+
+
+
+### Textbook 7.3.4
+
+#### Problem 2. Explore the distribution of `price`. Do you discover anything unusual or surprising? (Hint: Carefully think about the `binwidth` and make sure you try a wide range of values.)
+
+```{R}
+ggplot(data = diamonds, mapping = aes(x = price)) +
+  geom_histogram(binwidth = 1000, boundary = 0)
+```
+
+Cheap prices usually show a high frequency. No subgroups found yet.
+
+
+```{R}
+ggplot(data = diamonds, mapping = aes(x = price)) +
+  geom_histogram(binwidth = 100, boundary = 0)
+```
+
+The height of the box at about 1300 minorly decreases. The whole data is starting to divide into subgroups.
+
+
+```{R}
+ggplot(data = diamonds, mapping = aes(x = price)) +
+  geom_histogram(binwidth = 30, boundary = 0)
+```
+
+With a binwidth of 30, we can see that the frequency of price nearby 1300 is totally empty, which is unusual. We can say that the data is divided into subgroups.
+
+
+
+
+### Textbook 7.5.1.1
+
+#### Problem 1. Use what you’ve learned to improve the visualisation of the departure times of cancelled vs. non-cancelled flights.
+
+```{R}
+flights_new_deptime <- flights %>%
+  mutate(cancelled = is.na(dep_time),
+         sched_hour = sched_dep_time %/% 100,
+         sched_min = sched_dep_time %% 100,
+         sched_dep_time = sched_hour + sched_min / 60)
+
+ggplot(data = flights_new_deptime, mapping = aes(x = sched_dep_time)) +
+  geom_freqpoly(mapping = aes(color = cancelled), binwidth = 1/6)
+```
+
+This shows the frequencies of scheduled departure times for every 10 minutes.
+The red lines show the flights that were not cancelled, and the blue lines show the cancelled flights.
+
+
+
+#### Problem 2. What variable in the diamonds dataset is most important for predicting the price of a diamond? How is that variable correlated with cut? Why does the combination of those two relationships lead to lower quality diamonds being more expensive?
+
+```{R}
+ggplot(data = diamonds, mapping = aes(x = carat, y = price, color = cut)) +
+  geom_point(alpha = 0.1) +
+  geom_smooth()
+```
+
+This scatterplot and the regression lines suggest that there is a strong positive relationship between `carat` and `price`. Thus, we can suspect that `carat` is the most important variable predicting the price of a diamond.
+We can also find that yellow points are concentrated in the left side, suggesting that Ideal diamonds usually have small carat. Let check this with the following box plot.
+
+```{R}
+ggplot(data = diamonds) +
+  geom_boxplot(mapping = aes(x = cut, y = carat))
+```
+
+This boxplot shows the tendency that better quality diamonds have smaller carat.
+- Lower quality diamonds have larger carat. Because `carat` is positively related to `price`, lower quality diamonds could be more expensive than higher quality diamonds.
+
+
+
+
+### Textbook 7.5.2.1
+
+#### Problem 2. Use `geom_tile()` together with dplyr to explore how average flight delays vary by destination and month of year. What makes the plot difficult to read? How could you improve it?
+
+```{R}
+delay_by_dm <- flights %>%
+  group_by(dest, month) %>%
+  summarise(avg_dep_delay = mean(dep_delay, na.rm = TRUE))
+
+ggplot(data = delay_by_dm, mapping = aes(x = dest, y = month)) +
+  geom_tile(mapping = aes(fill = avg_dep_delay)) +
+  scale_y_continuous(breaks = seq(0.5, 12.5, by = 1))
+```
+
+There are too many destinations, which makes it impossible to have a look at the x-labels.
+If we add `theme(axis.text.x = element_text(angle = 90, vjust = 0.5))`, we can rotate the destinations.
+The following image is not good enough to see, but opening the png file `7.5.2.1 problem2` in the etc folder and magnifying it shows a better plot.
+
+```{R}
+ggplot(data = delay_by_dm, mapping = aes(x = dest, y = month)) +
+  geom_tile(mapping = aes(fill = avg_dep_delay)) +
+  scale_y_continuous(breaks = seq(0.5, 12.5, by = 1)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+```
+
+
+
+
+### Textbook 7.5.3.1
+
+#### Problem 5. Two dimensional plots reveal outliers that are not visible in one dimensional plots. For example, some points in the plot below have an unusual combination of `x` and `y` values, which makes the points outliers even though their `x` and `y` values appear normal when examined separately. Why is a scatterplot a better display than a binned plot for this case?
+
+```{R}
+# scatterplot
+ggplot(data = diamonds) +
+  geom_point(mapping = aes(x = x, y = y)) +
+  coord_cartesian(xlim = c(4, 11), ylim = c(4, 11))
+
+# binned plot
+ggplot(data = diamonds) +
+  geom_bin2d(mapping = aes(x = x, y = y)) +
+  coord_cartesian(xlim = c(4, 11), ylim = c(4, 11))
+```
+
+As we can see above, it is impossible to have a look at the outliers through a binned plot.
+We need a scatterplot to observe the observations that are apart from the (in this case, linear) pattern.
+Thus, a scatterplot is a better display than a binned plot for this case.
+
+
+
+
+### Textbook 10.5
+
+#### Problem 4. Practice referring to non-syntactic names in the following data frame by:
+
+```{R}
+annoying <- tibble(
+  `1` = 1:10,
+  `2` = `1` * 2 + rnorm(length(`1`))
+)
+```
+
+
+#### (1) Extracting the variable called `1`.
+
+```{R}
+annoying[['1']]
+```
+
+
+#### (2) Plotting a scatterplot of `1` vs `2`.
+
+```{R}
+ggplot(data = annoying) +
+  geom_point(mapping = aes(x = annoying[['1']], y = annoying[['2']])) +
+  scale_x_continuous(breaks = seq(1, 10, by = 1)) +
+  labs(x = "1", y = "2")
+```
+
+
+#### (3) Creating a new column called `3` which is `2` divided by `1`.
+
+```{R}
+annoying[['3']] <- annoying[['2']] / annoying[['1']]
+annoying
+```
+
+
+#### (4) Renaming the columns to `one`, `two` and `three`.
+
+```{R}
+colnames(annoying) <- c("one", "two", "three")
+annoying
+```
+
+
+
+
+### Textbook 11.2.2
+
+#### Problem 5. Identify what is wrong with each of the following inline CSV files. What happens when you run the code?
+
+```{R}
+read_csv("a,b\n1,2,3\n4,5,6")
+```
+
+There are two column names, but each row contains three values. The third value of each row is ignored.
+
+
+```{R}
+read_csv("a,b,c\n1,2\n1,2,3,4")
+```
+
+There are three column names, but the first row contains 2 values, and the second contains 4.
+Three columns are made, and the third value of the first row is left as a missing value.
+The fourth value of the second row is ignored.
+
+
+```{R}
+read_csv("a,b\n\"1")
+```
+
+There are two column names, but the only row contains only one value.
+
+
+```{R}
+read_csv("a,b\n1,2\na,b")
+```
+
+The second row is same as the column names, but no problem occurs.
+
+
+```{R}
+read_csv("a;b\n1;3")
+```
+
+No error occurs, but because there is no comma in each row, `a;b` becomes the column name and `1;3` becomes the only value of that column. This dataframe is not useful.
+
+
+
+
+### Textbook 11.3.5
+
+#### Problem 4. If you live outside the US, create a new locale object that encapsulates the settings for the types of file you read most commonly.
+
+When parsing dates, the default order of date is "Year/Month/Day".
+In countries using the date format of "Month/Day/Year", a new locale object should be used when parsing dates.
+
+```{R}
+mdy_locale <- locale(date_format = "%m/%d/%Y")
+parse_date("10/13/2019", locale = mdy_locale)
+```
+
+
+
+#### Problem 7. Generate the correct format string to parse each of the following dates and times:
+
+```{R}
+d1 <- "January 1, 2010"
+d2 <- "2015-Mar-07"
+d3 <- "06-Jun-2017"
+d4 <- c("August 19 (2015)", "July 1 (2015)")
+d5 <- "12/30/14" # Dec 30, 2014
+t1 <- "1705"
+t2 <- "11:15:10.12 PM"
+```
+
+```{R}
+parse_date(d1, "%B %d, %Y")
+parse_date(d2, "%Y-%b-%d")
+parse_date(d3, "%d-%b-%Y")
+parse_date(d4, "%B %d (%Y)")
+parse_date(d5, "%m/%d/%y")
+parse_time(t1, "%H%M")
+parse_time(t2, "%H:%M:%OS %p")
+```
+
+
+
+
+### Extra Questions
+
+#### 1. (a)
+
+```{R}
+library(quantmod)
+options("getSymbols.warning4.0"=FALSE) # to suppress warnings 
+samsung <- getSymbols("005930.KS", auto.assign=FALSE)  # KOSPI tick number is 005930
+
+# converting into tibble
+samsung_tbl <- as_tibble(samsung, rownames = NA)
+
+# mutating 'date' column
+samsung_tbl <- mutate(samsung_tbl, date = base::as.Date(rownames(samsung_tbl)))
+
+ggplot(data = samsung_tbl) +
+  geom_line(mapping = aes(x = date, y = samsung_tbl$`005930.KS.Close`)) +
+  labs(x = "date", y = "closing price")
+```
+
+
+
+#### 1. (b)
+
+```{R}
+# currencies from 2019-04-16 to 2019-10-12 (most recent available 180 days data)
+quantmod::getFX("USD/KRW", from = Sys.Date() - 180)
+quantmod::getFX("JPY/KRW", from = Sys.Date() - 180)
+
+# making currency information into tibbles
+USDKRW_tbl <- as_tibble(USDKRW, rownames = NA)
+USDKRW_tbl <- mutate(USDKRW_tbl, date = base::as.Date(rownames(USDKRW_tbl)))
+
+JPYKRW_tbl <- as_tibble(JPYKRW, rownames = NA)
+JPYKRW_tbl <- mutate(JPYKRW_tbl, date = base::as.Date(rownames(JPYKRW_tbl)))
+
+curr <- left_join(USDKRW_tbl, JPYKRW_tbl)
+
+
+closing <- select(samsung_tbl, date, 4) %>%
+  subset(date >= "2019-04-16")
+
+colnames(closing) <- c("date", "close_KRW")
+
+# joined currencies and closing prices for each day
+priceandcurr <- full_join(closing, curr) %>%
+  filter(is.na(close_KRW) == FALSE) %>%     ### extracted common time points!
+  mutate(close_USD = close_KRW / USD.KRW, close_JPY = close_KRW / JPY.KRW) %>%
+  select(1, 2, 5, 6, 3, 4)
+
+priceandcurr
+
+ggplot(data = priceandcurr) +
+  geom_line(mapping = aes(x = date, y = (close_KRW - mean(priceandcurr$close_KRW)) / sd(priceandcurr$close_KRW)), color = "blue") +
+  geom_line(mapping = aes(x = date, y = (close_USD - mean(priceandcurr$close_USD)) / sd(priceandcurr$close_USD)), color = "black") +
+  geom_line(mapping = aes(x = date, y = (close_JPY - mean(priceandcurr$close_JPY)) / sd(priceandcurr$close_JPY)), color = "red") +
+  labs(x = 'Date', y = 'Normalized Closing Price',
+       title = 'Standard Normalized Closing Prices in Different Currencies', subtitle = 'KRW in blue, USD in black, JPY in red')
+```
+
+The upper graph is the closing prices in KRW, USD and JPY adjusted by standard normalization.
+The initial points don't coincide, so we can draw the graph in another way.
+
+```{R}
+mutate(priceandcurr, adj_close_USD = close_USD * priceandcurr$USD.KRW[1],
+       adj_close_JPY = close_JPY * priceandcurr$JPY.KRW[1]) %>%
+  ggplot() +
+  geom_line(mapping = aes(x = date, y = close_KRW), color = "blue") +
+  geom_line(mapping = aes(x = date, y = adj_close_USD), color = "black") +
+  geom_line(mapping = aes(x = date, y = adj_close_JPY), color = "red") +
+  labs(x = 'Date', y = 'Adjusted Closing Price',
+       title = 'Adjusted Closing Prices in Different Currencies', subtitle = 'KRW in blue, USD in black, JPY in red')
+```
+
+In this graph, we made the initial points coincide by multiplying the first day currency to every USD and JPY data.
+
+
+
+
+#### 2. (a)
+
+```{R}
+setwd("C:/Users/minjo/Documents/GitHub/sc19-hw-MinjoonChoi99/hw2/etc")
+
+seoul2018 <- read_csv("Extra Question 2.csv", skip = 1) %>%
+  head(26) %>%
+  tail(25)
+
+seoul2018
+```
+
+
+
+#### 2. (b)
+
+```{R}
+seoul2018tidy <- select(seoul2018, -2)
+colnames(seoul2018tidy)[1] <- "행정구역"
+
+seoul2018tidy
+```
+
+The initial tibble `seoul2018` was not tidy because the column `연령별` had "합계" for its values. Thus, it is not a variable. We have deleted the column using `select()`.
+In the new tibble `seoul2018tidy`, each variable has its own column, and each observation has its own row.
+
+
+
+#### 2. (c)
+
+Fortunately, every column is expressed as a numeric vector (dbl) already.
+The numbers expressed in strings with commas were automatically parsed into numerical values through the `read_csv` process.
+
+
+
+#### 2. (d)
+
+```{R}
+pops <- seoul2018tidy[[2]]
+hist(pops)
+
+normalvec <- rnorm(25, mean = mean(pops), sd = sd(pops))
+hist(normalvec)
+```
+
+The histogram of `pops` looks similar to a normal distribution, making it also similar to the histogram of `normalvec`, which is a normal random vector with the same length, mean and standard deviation.
+
+
+
+#### 2. (e)
+
+```{R}
+sample1 <- sample(pops, 10, replace = TRUE)
+sample2 <- sample(pops, 10, replace = TRUE)
+
+mean(pops) # mean of population
+mean(sample1)
+mean(sample2)
+```
+
+The mean values of the two samples are different from each other, and they are also different from the population mean.
+This is because random sampling doesn't produce a same result for every sampling process.
+Also, a sample could not be the same as the population.
+
+
+
+#### 2. (f)
+
+```{R}
+mean(pops) # population mean
+
+mean100 <- mean(replicate(100, mean(sample(pops, 10, replace = TRUE))))
+mean1000 <- mean(replicate(1000, mean(sample(pops, 10, replace = TRUE))))
+mean10000 <- mean(replicate(10000, mean(sample(pops, 10, replace = TRUE))))
+
+# differences of 'mean of sample means' and 'population mean'
+mean(pops) - mean100
+mean(pops) - mean1000
+mean(pops) - mean10000
+```
+
+As the number of replications increase, the mean of the sample means gets closer to the population mean.
+This phenomenon is called the Central Limit Theorem. (When all of the possible sample means are computed, the mean of the sample means will be the mean of the population.)
+
+
+
+#### 2. (g)
+
+When sample size is 25,
+```{R}
+sample1 <- sample(pops, 25, replace = TRUE)
+sample2 <- sample(pops, 25, replace = TRUE)
+
+mean(pops) # mean of population
+mean(sample1)
+mean(sample2)
+```
+
+The sample means got closer to the population mean compared to the case when the sample size was 10.
+
+When sample size is 100,
+```{R}
+sample1 <- sample(pops, 100, replace = TRUE)
+sample2 <- sample(pops, 100, replace = TRUE)
+
+mean(pops) # mean of population
+mean(sample1)
+mean(sample2)
+```
+
+The sample means got much more closer to the population mean compared to the previous cases.
+
+
+
+#### 2. (h)
+
+```{R}
+smpmeans10 <- replicate(10000, mean(sample(pops, 10, replace = TRUE)))
+smpmeans25 <- replicate(10000, mean(sample(pops, 25, replace = TRUE)))
+smpmeans100 <- replicate(10000, mean(sample(pops, 100, replace = TRUE)))
+
+hist(pops)
+hist(smpmeans10, main = paste("Histogram of Sample Means : Sample size = 10"), xlab = "x-bar")
+hist(smpmeans25, main = paste("Histogram of Sample Means : Sample size = 25"), xlab = "x-bar")
+hist(smpmeans100, main = paste("Histogram of Sample Means : Sample size = 100"), xlab = "x-bar")
+```
+
+The histograms of sample means are more concentrated to the center comparing to `hist(pops)`.
+As the sample size gets larger, the distribution of the sample means gets more concentrated to the center, and the shape gets closer to a normal distribution. This is also the Central Limit Theorem. (Even though the population is not normally distributed, if the sample size is sufficiently large, then the sample means will have an approximately normal distribution.)
+
+
+
+#### 2. (i)
+
+The given sample size is 10, so we are going to consider `smpmeans10` used above.
+
+```{R}
+smpmeans10 <- replicate(10000, mean(sample(pops, 10, replace = TRUE)))
+quantile(smpmeans10, probs = c(0.025, 0.975))
+```
+
+The new sample mean given was 204885, which is way lower than the 2.5% quantile. So it is very unlikely that this data set is taken from Seoul's population (`pops`).
+
+```{R}
+quantile(smpmeans10, probs = 0.0001)
+```
+
+We can see that 204885 is lower than the 0.01% quantile. Thus, this data set is not taken from Seoul's population.

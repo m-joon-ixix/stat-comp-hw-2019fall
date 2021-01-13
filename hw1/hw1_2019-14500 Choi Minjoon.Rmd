@@ -1,0 +1,397 @@
+---
+title: "HW1"
+author: "Minjoon Choi (최민준)"
+output: html_document
+---
+
+## 2019-14500
+
+### Textbook 3.2.4
+
+#### Problem 1. Run `ggplot(data = mpg)`. What do you see?
+
+```{R}
+library(ggplot2)
+ggplot(data = mpg)
+```
+
+We can see an empty plot.
+
+
+
+#### Problem 5. What happens if you make a scatterplot of `class` vs `drv`? Why is the plot not useful?
+
+```{R}
+ggplot(data = mpg) +
+  geom_point(mapping = aes(x = drv, y = class))
+```
+
+자동차가 전륜구동인지, 사륜구동인지, 후륜구동인지는 자동차의 종류(class)와 전혀 관련이 없다. Scatterplot에서 여러 개의 점들이 겹쳐서 나타나며 이 plot은 의미가 없다.
+
+
+
+### Textbook 3.3.1
+
+#### Problem 1. What’s gone wrong with this code? Why are the points not blue?
+```
+ggplot(data = mpg) + 
+  geom_point(mapping = aes(x = displ, y = hwy, color = "blue"))
+```
+
+모든 점을 blue로 칠하려면 color를 mapping argument 속의 aesthetic으로 사용하면 안되고, color가 하나의 argument가 되어야 한다.
+코드를 다음과 같이 작성해야 한다.
+
+```{R}
+ggplot(data = mpg) +
+  geom_point(mapping = aes(x = displ, y = hwy), color = "blue")
+```
+
+
+
+#### Problem 5. What does the `stroke` aesthetic do? What shapes does it work with? (Hint: use `?geom_point`)
+
+- stroke aesthetic은 plot 상의 점들이 테두리를 가질 때, 테두리(border of point)의 크기를 설정하는 데 사용된다.
+- shape 21, 22, 23, 24와 같이 테두리(border)를 가지는 shape를 다룰 때 사용한다.
+- 다음과 같이 사용한다.
+
+```{R}
+ggplot(mtcars, aes(wt, mpg)) +
+  geom_point(shape = 23, colour = "red", fill = "blue", size = 5, stroke = 3)
+```
+
+
+
+
+### Textbook 3.5.1
+
+#### Problem 2. What do the empty cells in plot with `facet_grid(drv ~ cyl)` mean? How do they relate to this plot?
+```
+ggplot(data = mpg) + 
+  geom_point(mapping = aes(x = drv, y = cyl))
+```
+
+다음과 같이 `facet_grid(drv ~ cyl)` 를 포함한 plot을 그린다.
+
+```{R}
+ggplot(data = mpg) +
+  geom_point(mapping = aes(x = displ, y = hwy)) +
+  facet_grid(drv ~ cyl)
+```
+
+여기서 어떤 subplot이 empty cell이라는 것은 해당 subplot에 해당하는 drv, cyl 변수값을 동시에 가지는 데이터가 존재하지 않음을 의미한다.
+
+```{R}
+ggplot(data = mpg) + 
+  geom_point(mapping = aes(x = drv, y = cyl))
+```
+
+위의 plot에서 grid를 따라 점이 찍히지 않은 칸이 empty subplot과 대응한다.
+단, `cyl = 7`인 subplot은 `facet_grid` 를 포함한 plot에서는 존재하지 않았음을 유의한다.
+
+
+
+#### Problem 6. When using `facet_grid()` you should usually put the variable with more unique levels in the columns. Why?
+
+- By putting the variable with more unique levels in the columns, each subplot can have a longer width, maintaining a rectangular shape. It can helps us identify each data, which is indicated by points.
+
+
+
+
+### Textbook 3.6.1
+
+#### Problem 2. Run this code in your head and predict what the output will look like. Then, run the code in R and check your predictions.
+```
+ggplot(data = mpg, mapping = aes(x = displ, y = hwy, color = drv)) + 
+  geom_point() + 
+  geom_smooth(se = FALSE)
+```
+
+- `mpg` 데이터에서 `displ` 열이 x축, `hwy` 열이 y축이 되는 scatterplot이 그려질 것이며, 각 레코드의 `drv` 값에 따라 점의 색깔이 다를 것이다. 또한, 데이터의 전체적인 추이를 보여주는 회귀선이 그려질 것이며, 신뢰구간(confidence interval)은 나타나지 않을 것이다.
+- Let's check my prediction.
+
+```{R}
+ggplot(data = mpg, mapping = aes(x = displ, y = hwy, color = drv)) + 
+  geom_point() + 
+  geom_smooth(se = FALSE)
+```
+
+- 예상과 조금 달랐던 점은, `drv` 값에 따라 점의 색깔이 다를 뿐만 아니라, 회귀선까지 `drv` 값을 기준으로 구분하여 따로 그려졌다는 것이다.
+
+
+
+#### Problem 6. Recreate the R code necessary to generate the following graphs.
+
+- 좌측 상단의 그래프부터 오른쪽으로 이동하면서 (1) ~ (6) 으로 칭하겠다.
+
+(1)
+```{R}
+ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) +
+  geom_point(size = 5)+
+  geom_smooth(se = FALSE, size = 2)
+```
+
+(2)
+```{R}
+ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) +
+  geom_point(size = 5)+
+  geom_smooth(mapping = aes(group = drv), se = FALSE, size = 2)
+```
+
+(3)
+```{R}
+ggplot(data = mpg, mapping = aes(x = displ, y = hwy, color = drv)) +
+  geom_point(size = 5)+
+  geom_smooth(se = FALSE, size = 2)
+```
+
+(4)
+```{R}
+ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) +
+  geom_point(mapping = aes(color = drv), size = 5)+
+  geom_smooth(se = FALSE, size = 2)
+```
+
+(5)
+```{R}
+ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) +
+  geom_point(mapping = aes(color = drv), size = 5)+
+  geom_smooth(mapping = aes(linetype = drv), se = FALSE, size = 2)
+```
+
+(6)
+```{R}
+ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) +
+  geom_point(color = 'white', size = 10) +
+  geom_point(mapping = aes(color = drv), size = 5)
+```
+
+
+
+
+### Textbook 3.7.1
+
+#### Problem 1. What is the default geom associated with `stat_summary()`? How could you rewrite the previous plot to use that geom function instead of the stat function?
+
+- `geom_pointrange()` is the default geom associated with `stat_summary()`.
+- This code using `geom_pointrange()` can produce the previous plot (in the problem).
+
+```{R}
+ggplot(data = diamonds) +
+  geom_pointrange(mapping = aes(x = cut, y = depth), stat = 'summary', fun.ymin = min, fun.ymax = max, fun.y = median)
+```
+
+
+
+#### Problem 5. In our proportion bar chart, we need to set `group = 1`. Why?
+
+- If we don't set `group = 1`, the data is automatically grouped by `cut`, so the proportion of each `cut` value in the same `cut` category is always 1.
+- By setting `group = 1`, we can consider all levels of `cut` together, making the proper proportion of each level come out on the vertical axis.
+
+
+#### In other words what is the problem with these two graphs?
+```{R}
+ggplot(data = diamonds) + 
+  geom_bar(mapping = aes(x = cut, y = ..prop..))
+```
+
+For example, the proportion of Fair in the Fair `cut` level is definitely 1. So every `cut` level has a proportion of 1.
+This code produces a proportion bar chart.
+
+```{R}
+ggplot(data = diamonds) + 
+  geom_bar(mapping = aes(x = cut, y = ..prop.., group = 1))
+```
+
+- Let take a look at the second one.
+
+```{R}
+ggplot(data = diamonds) + 
+  geom_bar(mapping = aes(x = cut, fill = color, y = ..prop..))
+```
+
+In this graph, the data gets grouped by `cut` levels, and also `color` levels. Having `y = ..prop..` after those aesthetics causes the problem.
+For example, the proportion of Fair & D color, in the Fair and D `cut` and `color` level is definitely 1. This applies for every case. So for each `cut` level, 7 `color` levels each containing a proportion of 1 are stacked, making every bar have a height of 7.
+This code produces the bar chart we wanted.
+
+```{R}
+ggplot(data = diamonds) + 
+  geom_bar(mapping = aes(x = cut, fill = color, y = ..count../dim(diamonds)[1]))+
+  labs(y = "prop")
+```
+
+
+
+
+### Textbook 3.8.1
+
+#### Problem 1. What is the problem with this plot? How could you improve it?
+```{R}
+ggplot(data = mpg, mapping = aes(x = cty, y = hwy)) + 
+  geom_point()
+```
+
+- In the data, the values of `cty` and `hwy` are rounded so many points are overlapped (overplotting problem). We can't see where the mass of data is.
+- We can improve this problem by setting the position adjustment to `jitter`.
+
+```{R}
+ggplot(data = mpg, mapping = aes(x = cty, y = hwy)) + 
+  geom_point(position = "jitter")
+```
+
+- This makes us know which part of the scatterplot contains more data.
+
+
+
+#### Problem 3. Compare and contrast `geom_jitter()` with `geom_count()`.
+
+- They both let us notice where the data is concentrated on the scatterplot.
+- `geom_jitter()` gives a small random noise to each original data, and then plots the adjusted data.
+- `geom_count()` deals with the original data, but the size of the point is determined by the count of that point.
+
+
+
+
+### Textbook 3.9.1
+
+#### Problem 1. Turn a stacked bar chart into a pie chart using `coord_polar()`.
+
+```{R}
+bar <- ggplot(data = diamonds) +
+  geom_bar(mapping = aes(x = cut, fill = color), position = "fill", width = 0.7)
+bar
+```
+
+This is a stacked bar chart using the data `diamonds`.
+With the code below, we can change this into a pie chart that shows the proportions of `color` levels in each `cut` level.
+
+```{R}
+bar + coord_polar("y")
+```
+
+
+
+#### Problem 4. What does the plot below tell you about the relationship between city and highway mpg? Why is `coord_fixed()` important? What does `geom_abline()` do?
+```{R}
+ggplot(data = mpg, mapping = aes(x = cty, y = hwy)) +
+  geom_point() + 
+  geom_abline() +
+  coord_fixed()
+```
+
+- Every point is above the line drawn by `geom_abline()`. We can conclude that highway mpg is always higher than city mpg.
+- We need `coord_fixed()` in order to set the ratio between the horizontal and vertical intervals. Without any arguments, `coord_fixed()` makes the ratio to be 1:1.
+- `geom_abline()` draws a straight line, and we can set the intercept and slope of the line. Without any arguments, which is this case, `intercept = 0` and `slope = 1`.
+
+
+
+
+### Textbook 6.3
+
+#### Problem 2. What other common mistakes will RStudio diagnostics report?
+
+- When we use functions, RStudio detects missing arguments and report them.
+- It warns if the variable used has never been defined. 
+- It warns if a variable was defined, but has never been used.
+
+
+
+
+### Textbook 28.2.1
+
+#### Problem 1. Create one plot on the fuel economy data with customised `title`, `subtitle`, `caption`, `x`, `y`, and `colour` labels.
+
+```{R}
+ggplot(data = mpg, mapping = aes(x = cty, y = hwy)) +
+  geom_point(mapping = aes(color = class)) +
+  geom_smooth(se = FALSE) +
+  labs(title = "City and Highway fuel efficiencies are proportional to each other",
+       subtitle = "SUV having the lowest, compact cars having the highest fuel efficiencies",
+       caption = "Data from fueleconomy.gov",
+       x = "City Fuel Efficiency (mpg)",
+       y = "Highway Fuel Efficiency (mpg)",
+       color = "Class of Car")
+```
+
+
+
+
+### Textbook 28.4.4
+
+#### Problem 4. Use `override.aes` to make the legend on the following plot easier to see.
+```{R}
+ggplot(diamonds, aes(carat, price)) +
+  geom_point(aes(colour = cut), alpha = 1/20)
+```
+
+Using `guides()` along with `guide_legend()` and `override.aes`, we can adjust the `alpha` setting only for the legend on the plot.
+
+```{R}
+ggplot(diamonds, aes(carat, price)) +
+  geom_point(aes(colour = cut), alpha = 1/20) +
+  guides(color = guide_legend(override.aes = list(alpha = 1)))
+```
+
+
+
+
+### Extra Questions
+
+#### Problem 1. Write an R script that when run performs the following:
+
+#### (a)
+
+```{R}
+x <- 5
+y <- 6
+```
+
+- Nothing appears. Variables are only assigned.
+
+
+
+#### (b)
+
+```{R}
+log(x + y)
+```
+
+
+
+#### (c)
+
+```{R}
+log10(x * y /2)
+```
+
+
+
+#### (d)
+
+```{R}
+x^(1/3) + 2 * y^(1/4)
+```
+
+
+
+#### (e)
+
+```{R}
+10^(x-y) + exp(1)^(x+y)
+```
+
+
+
+#### Problem 2. Why does the following code not work?
+```
+my_variable <- 123
+my_varlable
+```
+
+- We have assigned 123 to a variable named `my_variable`. The next line asked for a variable named `my_varlable`, but we have never defined that variable.
+- This code works normally.
+
+```{R}
+my_variable <- 123
+my_variable
+```
+

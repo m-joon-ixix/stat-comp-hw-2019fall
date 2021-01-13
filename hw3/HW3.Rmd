@@ -1,0 +1,593 @@
+---
+title: "326.212 Homework 3"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+
+## 2019-14500 최민준
+
+
+```{R}
+library(nycflights13)
+library(tidyverse)
+```
+
+
+### Textbook 13.2.1
+
+#### Problem 1. Imagine you wanted to draw (approximately) the route each plane flies from its origin to its destination. What variables would you need? What tables would you need to combine?
+
+To draw the route of each flight, we need the locations of the origin and destination airports.
+For the `origin` and `dest` of each flight data in the table `flights`, we need the 'lat', 'lon` variables from the table `airports`.
+We should combine the tables `flights` and `airports` by the following way.
+
+```{R}
+flights %>%
+  inner_join(select(airports, origin = faa, origin_lat = lat, origin_lon = lon)) %>%
+  inner_join(select(airports, dest = faa, dest_lat = lat, dest_lon = lon))
+```
+
+
+
+
+### Textbook 13.3.1
+
+#### Problem 2. Identify the keys in the following datasets.
+
+#### (1) `Lahman::Batting`
+
+```{R}
+library(Lahman)
+Batting %>%
+  count(playerID, yearID, stint) %>%
+  filter(n > 1)
+```
+
+A tibble with 0 rows appear. We can notice that (`playerID`, `yearID`, `stint`) is a primary key.
+
+
+
+#### (2) `babynames::babynames`
+
+```{R}
+library(babynames)
+babynames %>%
+  count(name, sex, year) %>%
+  filter(n > 1)
+```
+
+A tibble with 0 rows appear. We can notice that (`name`, `sex`, `year`) is a primary key.
+
+
+
+#### (3) `nasaweather::atmos`
+
+```{R}
+library(nasaweather)
+atmos %>%
+  count(lat, long, year, month) %>%
+  filter(n > 1)
+```
+
+A tibble with 0 rows appear. We can notice that (`lat`, `long`, `year`, `month`) is a primary key.
+
+
+
+#### (4) `fueleconomy::vehicles`
+
+```{R}
+library(fueleconomy)
+vehicles %>%
+  count(id) %>%
+  filter(n > 1)
+```
+
+A tibble with 0 rows appear. We can notice that (`id`) is a primary key.
+
+
+
+#### (5) `ggplot2::diamonds`
+
+```{R}
+nrow(distinct(diamonds))
+nrow(diamonds)
+```
+
+The number of distinct rows is not equal to the total number of rows in `diamonds`.
+This means that there exists totally same rows in the table `diamonds`.
+Thus, there is no primary key.
+
+
+
+
+### Textbook 13.4.6
+
+#### Problem 3. Is there a relationship between the age of a plane and its delays?
+
+```{R}
+age_delay <- 
+  inner_join(select(flights, year:day, dep_delay:tailnum), select(planes, tailnum, plane_made_year = year)) %>%
+  mutate(plane_age = year - plane_made_year)
+
+count(age_delay, plane_age) %>%
+  filter(n < 1000)
+```
+
+We have joined `flights` and `planes` by the variable `tailnum`, and added a variable that indicates the age of planes.
+To get rid of plane ages that have little amount of flight data, let's only look at flight data that has plane age less than 28.
+
+```{R}
+age_delay2 <-
+  age_delay %>%
+  filter(plane_age < 28) %>%
+  group_by(plane_age) %>%
+  summarise(avg_dep_delay = mean(dep_delay, na.rm = TRUE), avg_arr_delay = mean(arr_delay, na.rm = TRUE))
+
+ggplot(data = age_delay2, mapping = aes(plane_age, avg_dep_delay)) +
+  geom_point() +
+  scale_x_continuous(breaks = seq(0, 30, 1)) +
+  labs(x = "Age of Plane (year)", y = "Average Departure Delay (minutes)")
+
+ggplot(data = age_delay2, mapping = aes(plane_age, avg_arr_delay)) +
+  geom_point() +
+  scale_x_continuous(breaks = seq(0, 30, 1)) +
+  labs(x = "Age of Plane (year)", y = "Average Arrival Delay (minutes)")
+```
+
+Drawing scatterplots with plane ages and average delay times, the distributions for departure delays and arrival delays appear similar.
+We can notice that delay times increase as the plane age goes up to 10 years. After 10 years, delay times slightly decrease as the age increases.
+This relationship might be beacuse older planes have more problems, and airlines frequently remove planes older than 10 years. Also they schedule old planes with enough time in preparation for mechanical problems.
+
+
+
+
+### Textbook 13.5.1
+
+#### Problem 1. What does it mean for a flight to have a missing `tailnum`? What do the tail numbers that don’t have a matching record in `planes` have in common? (Hint: one variable explains ~90% of the problems.)
+
+```{R}
+flights %>%
+  filter(is.na(tailnum))
+```
+
+The flights that have a missing `tailnum` also have missing `dep_time`, `arr_time`, and the corresponding delay times.
+This means that flights with missing `tailnum` are flights that were cancelled.
+
+```{R}
+flights %>%
+  anti_join(planes, by = 'tailnum') %>%
+  count(carrier)
+```
+
+Using `anti_join()`, we got a list of flights with tail numbers that don't have a match in `planes`.
+Counting these flights by the variable `carrier`, we can notice that most of them are operated by AA or MQ.
+If we take a look at the `planes` documentation by `?planes`, it states the following.
+`American Airways (AA) and Envoy Air (MQ) report fleet numbers rather than tail numbers so can't be matched.`
+This is the reason why AA and MQ are the most among airlines that have mismatching tail numbers.
+
+
+
+
+### Textbook 14.2.5
+
+#### Problem 2. In your own words, describe the difference between the `sep` and `collapse` arguments to `str_c()`.
+
+```{R}
+library(stringr)
+
+str_c("x", "y", sep = ", ")
+str_c(c("x", "y"), collapse = ", ")
+```
+
+- `sep` is used when the strings we are going to combine are arguments to `str_c()`. It appoints the string inserted between the character arguments.
+- `collapse` is used when a vector that is containing strings comes to an argument of `str_c()`. It appoints the string inserted between the character elements of the character vector.
+
+
+
+
+### Textbook 14.3.1.1
+
+#### Problem 1. Explain why each of these strings don’t match a `\`: `"\"`, `"\\"`, `"\\\"`.
+
+- `"\"`: One backslash escapes the next character, so doesn't produce anything.
+- `"\\"`: Two backslashes turn into one backslash in regular expression, and it escapes the next character.
+- `"\\\"`: The first two backslashes turn into one backslash and escapes the next character, and the third one also escapes the next character. So this string escapes another escaped character.
+
+
+
+
+### Textbook 14.3.2.1
+
+#### Problem 2. Given the corpus of common words in `stringr::words`, create regular expressions that find all words that:
+
+#### (1) Start with “y”.
+
+```{R}
+str_view(words, "^y", match = TRUE)
+```
+
+
+#### (2) End with “x”.
+
+```{R}
+str_view(words, "x$", match = TRUE)
+```
+
+
+#### (3) Are exactly three letters long. (Don’t cheat by using `str_length()`!)
+
+```{R}
+str_view(words, "^...$", match = TRUE)
+```
+
+
+#### (4) Have seven letters or more.
+
+```{R}
+str_view(words, "^.......", match = TRUE)
+```
+
+
+
+
+### Textbook 14.3.3.1
+
+#### Problem 3. Is “q” always followed by a “u”?
+
+```{R}
+str_view(words, "q", match = TRUE)
+str_view(words, "q[^u]", match = TRUE)
+```
+
+In the dataset `words`, "q" is always followed by a "u".
+But in normal English, sometimes other alphabets can come after "q".
+For example, "qwerty".
+
+
+
+
+### Textbook 14.3.4.1
+
+#### Problem 3. Create regular expressions to find all words that:
+
+#### (1) Start with three consonants.
+
+```{R}
+str_view(words, "^[^aiueo]{3}", match = TRUE)
+```
+
+
+#### (2) Have three or more vowels in a row.
+
+```{R}
+str_view(words, "[aiueo]{3,}", match = TRUE)
+```
+
+
+#### (3) Have two or more vowel-consonant pairs in a row.
+
+```{R}
+str_view(words, "([aiueo][^aiueo]){2,}", match = TRUE)
+```
+
+
+
+
+### Textbook 14.3.5.1
+
+#### Problem 2. Construct regular expressions to match words that:
+
+#### (1) Start and end with the same character.
+
+```{R}
+str_view(words, "^(.)((\\1?$)|(.*\\1$))", match = TRUE)
+```
+
+
+#### (2) Contain a repeated pair of letters (e.g. “church” contains “ch” repeated twice.)
+
+```{R}
+str_view(words, "(..).*\\1", match = TRUE)
+```
+
+
+#### (3) Contain one letter repeated in at least three places (e.g. “eleven” contains three “e”s.)
+
+```{R}
+str_view(words, "(.).*\\1.*\\1", match = TRUE)
+```
+
+
+
+
+### Textbook 14.4.1.1
+
+#### Problem 2. What word has the highest number of vowels? What word has the highest proportion of vowels?
+
+```{R}
+vowels <- str_count(words, "[aiueo]")
+words[vowels == max(vowels)]
+```
+
+These words have the highest number of vowels.
+
+
+```{R}
+vowels_prop <- str_count(words, "[aiueo]") / str_length(words)
+words[vowels_prop == max(vowels_prop)]
+```
+
+The word with the highest proportion of vowels is "a".
+
+
+
+
+### Textbook 14.4.2.1
+
+#### Problem 1. In the previous example, you might have noticed that the regular expression matched “flickered”, which is not a colour. Modify the regex to fix the problem.
+
+```{R}
+colours <- c("red", "orange", "yellow", "green", "blue", "purple")
+colour_match <- str_c(colours, collapse = "|")
+more <- sentences[str_count(sentences, colour_match) > 1]
+
+colour_match2 <- str_c("\\b(", colour_match, ")\\b")
+str_view_all(more, colour_match2)
+```
+
+By setting a word boundary on the string `colour_match`, we can match the colors in a sentence only when the color is a whole word.
+
+
+
+
+### Textbook 14.4.3.1
+
+#### Problem 1. Find all words that come after a “number” like “one”, “two”, “three” etc. Pull out both the number and the word.
+
+```{R}
+number <- "one|two|three|four|five|six|seven|eight|nine|ten"
+number_word <- str_c("\\b(", number, ") +(\\w+)")
+
+str_subset(sentences, number_word) %>%
+  str_extract(number_word)
+```
+
+
+
+
+### Textbook 14.4.4.1
+
+#### Problem 3. Switch the first and last letters in `words`. Which of those strings are still words?
+
+```{R}
+words_flip <- str_replace(words, "(.)(.*)(.)", "\\3\\2\\1")
+head(words_flip, 10)
+
+words_flip[words == words_flip]
+```
+
+`words_flip` is a character vector that contains the results when we switched the first and last letters in `words`.
+The 37 words displayed are words that have the same letter in the first and last place.
+
+
+
+
+### Textbook 14.4.5.1
+
+#### Problem 1. Split up a string like `"apples, pears, and bananas"` into individual components.
+
+```{R}
+fruits <- "apples, pears, and bananas"
+str_split(fruits, ", +(and +)?")
+```
+
+
+
+
+### Textbook 15.3.1
+
+#### Problem 1. Explore the distribution of `rincome` (reported income). What makes the default bar chart hard to understand? How could you improve the plot?
+
+```{R}
+library(forcats)
+
+str(gss_cat$rincome)
+levels(gss_cat$rincome)
+```
+
+The `rincome` column is a factor vector with 16 levels.
+
+```{R}
+ggplot(data = gss_cat) +
+  geom_bar(mapping = aes(x = rincome))
+```
+
+This default bar chart is hard to understand because the labels on the horizontal axis are overlapped.
+We can fix this problem in two ways.
+
+- Rotate each of the labels so that they don't overlap.
+
+```{R}
+ggplot(data = gss_cat) +
+  geom_bar(mapping = aes(x = rincome)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+- Change the horizontal and vertical axis so that `rincome`, which has long labels, goes to the vertical axis.
+
+```{R}
+ggplot(data = gss_cat) +
+  geom_bar(mapping = aes(x = rincome)) +
+  coord_flip()
+```
+
+
+
+
+### Textbook 15.4.1
+
+#### Problem 2. For each factor in `gss_cat` identify whether the order of the levels is arbitrary or principled.
+
+```{R}
+str(gss_cat)
+```
+
+There are 6 factors in `gss_cat` : `marital`, `race`, `rincome`, `partyid`, `relig`, `denom`
+
+```{R}
+levels(gss_cat$marital)
+ggplot(gss_cat) +
+  geom_bar(aes(marital)) +
+  scale_x_discrete(drop = FALSE)
+```
+
+- `marital` has some order, but the levels don't seem to be fully ordered. It could be seen as "No answer" - "Never Married" - Once Married("Separated", "Divorced", "Widowed") - "Married".
+
+
+```{R}
+levels(gss_cat$race)
+ggplot(gss_cat) +
+  geom_bar(aes(race)) +
+  scale_x_discrete(drop = FALSE)
+```
+
+- Except "Not applicable", the levels of `race` seem to be in incresing order of counts.
+
+
+```{R}
+levels(gss_cat$rincome)
+ggplot(gss_cat) +
+  geom_bar(aes(rincome)) +
+  scale_x_discrete(drop = FALSE) +
+  coord_flip()
+```
+
+
+- The levels "Not applicable", "Refused", "Don't know", "No answer" have no order. The other levels are in decreasing order of the numerical incomes.
+
+
+```{R}
+levels(gss_cat$partyid)
+```
+
+- Only looking at the names of levels, we can notice that `partyid` is ordered from "Strong republican" to "Strong democrat". The other levels "No answer", "Don't know", "Other party" are ordered arbitrarily.
+
+
+```{R}
+levels(gss_cat$relig)
+ggplot(gss_cat) +
+  geom_bar(aes(relig)) +
+  scale_x_discrete(drop = FALSE) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+- The factor `relig` seems to be ordered arbitrarily. There is no pattern.
+
+
+```{R}
+levels(gss_cat$denom)
+ggplot(gss_cat) +
+  geom_bar(aes(denom)) +
+  scale_x_discrete(drop = FALSE) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+- The factor `denom` also seems to be ordered arbitrarily. There is no pattern.
+ 
+
+
+
+### Textbook 15.5.1
+
+#### Problem 1. How have the proportions of people identifying as Democrat, Republican, and Independent changed over time?
+
+```{R}
+prop_by_year <- gss_cat %>%
+  mutate(partyid = fct_collapse(partyid,
+                                Others = c("No answer", "Don't know", "Other party"),
+                                Democrat = c("Not str democrat", "Strong democrat"),
+                                Independent = c("Ind,near rep", "Independent", "Ind,near dem"),
+                                Republican = c("Strong republican", "Not str republican"))) %>%
+  group_by(year, partyid) %>%
+  summarise(count = n()) %>%
+  spread(key = partyid, value = count) %>%
+  mutate(total = Others + Republican + Independent + Democrat,
+         prop_rep = Republican / total,
+         prop_ind = Independent / total,
+         prop_dem = Democrat / total)
+
+prop_by_year
+
+ggplot(data = prop_by_year) +
+  geom_line(mapping = aes(x = year, y = prop_rep), color = "red") +
+  geom_line(mapping = aes(x = year, y = prop_ind), color = "black") +
+  geom_line(mapping = aes(x = year, y = prop_dem), color = "blue") +
+  scale_x_continuous(breaks = seq(2000, 2014, 2)) +
+  labs(y = "Proportion", title = "Proportion of Supporting Party", subtitle = "Republican in Red, Independent in Black, Democrat in Blue")
+```
+
+The proportion of "Independent" was always the highest. The proportion of Democrats was higher than Republicans. Democrats' proportion didn't show a big change, but Republicans' proportion generally decreased from 2004.
+
+
+
+
+### Textbook 16.2.4
+
+#### Problem 2. What does the `tzone` argument to `today()` do? Why is it important?
+
+The `tzone` argument specifies which time zone to find the current date of. Its default is the system time zone set on my computer. It is important because the current date of different time zones may differ.
+For example, it is AM 01:47 of November 10th, 2019 in South Korea now. But when the time zone is set to GMT(Greenwich Mean Time), the date becomes November 9th, 2019.
+
+```{R}
+library(lubridate)
+library(hms)
+
+today()
+today(tzone = "GMT")
+```
+
+
+
+
+### Textbook 16.3.4
+
+#### Problem 6. What makes the distribution of `diamonds$carat` and `flights$sched_dep_time` similar?
+
+```{R}
+ggplot(diamonds) +
+  geom_histogram(aes(carat%%1), binwidth = 0.01) +
+  labs(x = "decimal portion of carat")
+
+ggplot(flights) +
+  geom_histogram(aes(sched_dep_time%%100), binwidth = 1) +
+  labs(x = "Minute of 'sched_dep_time'")
+```
+
+`diamonds$carat` and `flights$sched_dep_time` datas both have abnormally large numbers on specific values. (They have several subgroups)
+- In `diamonds$carat`, a large number of data is concentrated near 0, 1/3, 1/2, 2/3.
+- In `flights$sched_dep_time`, most of the data is concentrated on 0, 5, 10, 15, ... , 50, 55. This is because most flights are scheduled at intervals of 5 minutes.
+
+
+
+
+### Textbook 16.4.5
+
+#### Problem 4. Write a function that given your birthday (as a date), returns how old you are in years.
+
+```{R}
+age <- function(birthday){
+  floor((birthday %--% today()) / years(1))
+}
+
+age(ymd(19991110))
+age(ymd(19991111))
+age(ymd(19991208))
+```
+
+When a birthday is given as a date (like `ymd(19991208)`), the function `age()` calculates how old you are in years.
+Today is November 10th, 2019, so a man whose birthday is November 10th, 1999 became 20 years old today.
+A man whose birthday is the next day of the previous man, is still 19 years old.

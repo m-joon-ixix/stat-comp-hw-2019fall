@@ -1,0 +1,170 @@
+---
+title: '326.212 Final Project: Part 3'
+output: html_document
+---
+
+## 2019-14500 최민준
+
+```{r}
+library(RSQLite)
+library(tidyverse)
+con <- dbConnect(SQLite(), "project.sqlite")
+```
+
+## Part 3. Advanced Questions (100 pts)
+
+### Q1. When is the best time of day/day of week/time of year to fly to minimise delays? (50 pts)
+
+- Because this doesn't involve the task of comparing between the data of each year, it is okay to limit the data to 2018.
+- It's unable to consider cancelled flights. We are going to ignore cancelled flight data.
+- Considering 'time of day', we will use the hour of Scheduled Departure Time. Because airports and airlines prepare their operations based on the scheduled times, it's better to use scheduled time in analyzing.
+- Because we are using departure times, it is more proper to use Departure Delays as the measure of delay. Also, Departure Delay is the main contribution to Arrival Delay, so there seems no need to use Arrival Delay.
+- Considering 'time of year', we will use the Month variable.
+
+```{r}
+flights <- tbl(con, "flights")
+
+delay_hour <- flights %>%
+  filter(Cancelled == 0 & Year == 2018) %>%
+  mutate(sch_dep_hour = as.integer(as.numeric(CRS_Dep_Time) / 100)) %>%
+  group_by(sch_dep_hour) %>%
+  summarise(avg_delay = mean(Dep_Delay)) %>%
+  collect()
+delay_hour
+
+ggplot(data = delay_hour) +
+  geom_point(aes(x = sch_dep_hour, y = avg_delay)) +
+  labs(title = "Avg. Delays for each hour of a day", x = "Scheduled Dep. Hour", y = "Avg. Delay")
+```
+
+- In midnight(12AM ~ 4AM), the values are high and they look quite random. This might be because the number of flights in these hours is substantially less than other hours.
+- From 5AM, a pattern is observed. The average delay increases as time flows until 6PM, and then gradually decreases. This is because the delay of preceding flights influence the following flights' delays. As a day passes, the delays get cumulated, and this gets resolved as the number of flights gradually decrease from evening (7PM ~ 8PM).
+- To minimise delays, 5AM ~ 7AM is the best time of a day.
+
+
+```{r}
+delay_dayofweek <- flights %>%
+  filter(Cancelled == 0 & Year == 2018) %>%
+  group_by(Day_Of_Week) %>%
+  summarise(avg_delay = mean(Dep_Delay), count = n()) %>%
+  collect()
+delay_dayofweek
+```
+
+- Saturdays show the lowest average delay, and also has the least number of flights. There might be a correlation between number of flights and average delay. Let's check this.
+```{r}
+delay_day <- flights %>%
+  filter(Cancelled == 0 & Year == 2018) %>%
+  group_by(Month, Day_of_Month) %>%
+  summarise(avg_delay = mean(Dep_Delay), count = n()) %>%
+  collect()
+
+ggplot(data = delay_day, aes(x = count, y = avg_delay)) +
+  geom_point() +
+  geom_smooth()
+
+lm_count_delay <- lm(avg_delay ~ count, delay_day)
+summary(lm_count_delay)
+
+cor(delay_day$count, delay_day$avg_delay)
+```
+
+- The plot doesn't show a certain relation between number of flights and average delay.
+- The linear regression model gives a R-squared value of 0.0513, which is insufficient to say there is a relation. Also, the correlation coefficient is only 0.23, so there seems to be no certain correlation.
+- We conclude that the increase of number of flights could increase the delay, but isn't mainly influencing.
+
+- Back to the subject, Saturday is the best day of a week to minimise delays.
+
+
+```{r}
+delay_month <- flights %>%
+  filter(Cancelled == 0 & Year == 2018) %>%
+  group_by(Month) %>%
+  summarise(avg_delay = mean(Dep_Delay)) %>%
+  collect()
+delay_month
+
+ggplot(data = delay_month) +
+  geom_point(aes(x = Month, y = avg_delay)) +
+  labs(title = "Avg. Delays for each month", x = "Month", y = "Avg. Delay") +
+  scale_x_continuous(breaks = seq(1, 12, by = 1))
+
+```
+
+- The average delay is highest in the summer vacation season (June, July, August). Also, the winter vacation season (November, December, January, February) has more delay compared to the non-vacation seasons (March, April, September, October).
+- September and October are the best times of a year to minimise delays.
+
+- Now, let's check all three factors (hour, day of week, month) together. In this case, only using data of 2018 could be an insufficient amount of data. We are going to use the whole data.
+```{r}
+delay_together <- flights %>%
+  filter(Cancelled == 0) %>%
+  mutate(sch_dep_hour = as.integer(as.numeric(CRS_Dep_Time) / 100)) %>%
+  group_by(Month, Day_Of_week, sch_dep_hour) %>%
+  summarise(avg_delay = mean(Dep_Delay), count = n()) %>%
+  collect()
+
+arrange(delay_together, avg_delay)
+```
+- In this table, the times that have the least delays have too few number of flights. Let's restrict the number of flights.
+
+```{r}
+delay_together %>%
+  filter(count > 80000) %>%
+  arrange(avg_delay)
+```
+
+- This result shows that generally, September and October, 6AM ~ 7AM shows the least delays. But the earlier conclusion that Saturdays have the least delays could not be confirmed.
+- The month and departure hour both seem to be significant factors on delay times. The top 30 rows explain that the departure hour seems to be more important.
+
+
+
+### Q2. Do older planes suffer more delays? (50 pts)
+
+- We ignore negative ages of airplanes.
+- When the whole data set `flights` is filtered and split into datasets of each month (eg. 2015-07), we can know bring this into R and use it as a tibble (split into fractions, and the data size of each fraction got much smaller). For each month dataset, combine the flight data and `airplanes`, compute the age of plane for each flight record, and then compute the correlation between age and delay.
+- The correlation for each month data (fraction) goes into the vector `correl`.
+
+```{r}
+airplanes <- tbl(con, "airplanes") %>%
+  collect() %>%
+  filter(as.numeric(Year) > 0)
+colnames(airplanes)[9] <- "year_made"
+
+# initial settings before using for loop
+correl <- vector("numeric")
+i <- 0
+
+## for loop start
+for(y in 2001:2018){
+  for(m in 1:12){
+    i <- i + 1
+    
+    flights_sub <- flights %>%
+  filter(Year == y & Month == m & Cancelled == 0 & !is.na(Dep_Delay)) %>%
+  collect()
+    
+    delay_age <- inner_join(flights_sub, airplanes, by = c("Tail_Num" = "TailNum")) %>%
+      select(1, 11, 16, 38) %>%
+      mutate(age = Year - as.numeric(year_made)) %>%
+      filter(age >= 0)
+    
+    correl[i] <- cor(delay_age$age, delay_age$Dep_Delay)
+  }
+}
+
+correl
+```
+
+- (여기서 몇 군데에서 NA가 나오는 month에 대해 `flights_sub`을 살펴보았더니, `Tail_Num` 컬럼에 숫자형의 이상한 값들이 들어가 있었습니다. 이러한 상황을 살폈을 때, 데이터 다운로드 자체가 잘못된 것 같은데, 저는 주어진 코드를 그대로 사용해서 다운로드를 받았으며, 어디서 잘못된 것인지 알 수가 없습니다.)
+
+```{r}
+range(correl, na.rm = TRUE)
+```
+
+- The absolute values of the correlations for each fraction has a maximum of only 0.04. Thus, we cannot say that the age of an airplane is correlated with delay time.
+- We can't say "Older planes suffer more delays".
+
+
+```{r}
+dbDisconnect(con)
+```
